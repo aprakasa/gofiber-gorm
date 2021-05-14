@@ -19,11 +19,11 @@ type (
 	}
 
 	Projects struct {
-		ID          uint   `gorm:"primaryKey" json:"id"`
-		Name        string `gorm:"size:255" json:"name"`
-		Description string `gorm:"size:255" json:"description"`
-		CreatedAt   *time.Time
-		UpdatedAt   *time.Time
+		ID          uint       `gorm:"primaryKey" json:"id"`
+		Name        string     `gorm:"size:255" json:"name"`
+		Description string     `gorm:"size:255" json:"description"`
+		CreatedAt   *time.Time `json:"created_at"`
+		UpdatedAt   *time.Time `json:"updated_at"`
 	}
 
 	Response struct {
@@ -40,7 +40,7 @@ func (s Store) createProject(c *fiber.Ctx) error {
 	}
 
 	if err := s.DB.Create(&project).Error; err != nil {
-		return c.Status(500).JSON(Response{"unable to save project", nil})
+		return c.Status(500).JSON(Response{err.Error(), nil})
 	}
 
 	return c.Status(201).JSON(Response{"project created", project})
@@ -70,7 +70,7 @@ func (s Store) getProject(c *fiber.Ctx) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(404).JSON(Response{"project not found", nil})
 	} else if err != nil {
-		return c.Status(500).JSON(Response{"unable to display project", nil})
+		return c.Status(500).JSON(Response{err.Error(), nil})
 	}
 
 	return c.Status(200).JSON(Response{"project created", project})
@@ -86,16 +86,12 @@ func (s Store) updateProject(c *fiber.Ctx) error {
 		return c.JSON(Response{"unable to parse data", nil})
 	}
 
-	err := s.DB.First(&project, id).Error
+	err := s.DB.Model(&project).Where("id=?", id).Updates(&project).First(&project, id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(404).JSON(Response{"project not found", id})
 	} else if err != nil {
-		return c.Status(500).JSON(Response{"unable to display project", nil})
-	}
-
-	if err := s.DB.Save(&project).Error; err != nil {
-		return c.Status(500).JSON(Response{"unable to update project", nil})
+		return c.Status(500).JSON(Response{err.Error(), nil})
 	}
 
 	return c.Status(200).JSON(Response{"project updated", project})
@@ -108,8 +104,12 @@ func (s Store) deleteProject(c *fiber.Ctx) error {
 
 	var project Projects
 
-	if err := s.DB.Delete(&project, id).Error; err != nil {
-		return c.Status(500).JSON(Response{"unable to delete project", nil})
+	err := s.DB.Model(&project).Where("id=?", id).Delete(&project, id).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(404).JSON(Response{"project not found", id})
+	} else if err != nil {
+		return c.Status(500).JSON(Response{err.Error(), nil})
 	}
 
 	return c.Status(204).JSON(Response{"project deleted", nil})
